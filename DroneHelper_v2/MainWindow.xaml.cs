@@ -172,50 +172,48 @@ namespace DroneHelper_v2
             destroyedEnemies.Clear();
             var destroyedPositions = new List<(double lat, double lng)>();
 
-            // Збереження атакуючих позицій дронів
+            // Список атакующих позиций дронов
             List<(double lat, double lng)> attackPositions = new List<(double lat, double lng)>();
 
-            for (int i = 0; i < MaxDrones; i++)
+            // Очищаем список координат дронов
+            lstDroneCoordinates.Items.Clear();
+
+            for (int i = 0; i < drones.Count; i++)
             {
+                // Получаем позицию атаки дрона на основе генома
                 double droneX = GetX(bestGenome[i]);
                 double droneY = GetY(bestGenome[i]);
 
-                attackPositions.Add((droneX, droneY)); // Зберігаємо позиції атаки для відображення
+                // Добавляем позицию атаки в список
+                attackPositions.Add((droneX, droneY));
 
                 foreach (var enemy in enemies.ToList())
                 {
                     double enemyX = enemy.lat;
                     double enemyY = enemy.lng;
 
-                    if (Math.Sqrt(Math.Pow(droneX - enemyX, 2) + Math.Pow(droneY - enemyY, 2)) <= Radius)
+                    // Рассчитываем расстояние до врага и проверяем, входит ли враг в радиус атаки
+                    double distance = Math.Sqrt(Math.Pow(droneX - enemyX, 2) + Math.Pow(droneY - enemyY, 2));
+                    if (distance <= Radius)
                     {
                         destroyedEnemies.Add(enemy);
                         destroyedPositions.Add((enemy.lat, enemy.lng));
                         enemies.Remove(enemy);
 
-                        // Обчислюємо час дольоту
-                        double distance = Math.Sqrt(Math.Pow(droneX - enemyX, 2) + Math.Pow(droneY - enemyY, 2));
+                        // Рассчитываем время полета
                         double timeToReach = distance / Speed;
 
-                        // Виводимо координати дронів та час дольоту
-                        lstDroneCoordinates.Items.Add($"Drone {i + 1}: Lat: {droneX}, Lng: {droneY}, Time to reach: {timeToReach:F2} seconds");
+                        // Обновляем список координат с новым временем полета и точной позицией
+                        lstDroneCoordinates.Items.Add($"Drone {i + 1}: Lat: {droneX:F6}, Lng: {droneY:F6}, Time to reach: {timeToReach:F2} seconds");
                     }
                 }
+
+                // Обновляем фактическое положение дрона в списке дронов после атаки
+                drones[i].Position = (droneX, droneY);
             }
 
-            MessageBox.Show($"Знищено ворогів: {destroyedEnemies.Count}", "Результати атаки", MessageBoxButton.OK, MessageBoxImage.Information);
-
-            if (enemies.Count == 0)
-            {
-                MessageBox.Show("Всі вороги знищені!", "Результат", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            else
-            {
-                MessageBox.Show($"Не вдалося знищити усіх ворогів.\nЗалишилось ворогів: {enemies.Count}", "Результат", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-
-            // Відображення атакуючих позицій дронів
-            DrawDrones(attackPositions, true); // Тепер передаємо attackPositions
+            // Отрисовка дронов в новых позициях атаки
+            DrawDrones(attackPositions, true);
             DrawEnemies();
         }
 
@@ -311,39 +309,39 @@ namespace DroneHelper_v2
             return result;
         }
 
-
         private void DrawDrones(List<(double lat, double lng)> attackPositions, bool isAttacking)
         {
-            // Очищение попередніх маркерів
             foreach (var marker in droneMarkers)
             {
                 MapControl.Markers.Remove(marker);
             }
             droneMarkers.Clear();
 
-            // Відображення дронів на позиціях атаки або початкових позиціях
+            // Выбор правильных позиций для отображения - атакующие позиции или позиции дронов.
             List<(double lat, double lng)> positionsToDisplay = isAttacking ? attackPositions : drones.Select(d => d.Position).ToList();
 
             foreach (var pos in positionsToDisplay)
             {
-                // Додавання маркера дрона
+                // Маркер дрона
                 var droneMarker = new GMapMarker(new PointLatLng(pos.lat, pos.lng))
                 {
-                    Shape = new Ellipse { Fill = Brushes.Blue, Width = 10, Height = 10 } // Устанавливаем цвет дронов в синий
+                    Shape = new Ellipse { Fill = Brushes.Blue, Width = 10, Height = 10 }
                 };
                 MapControl.Markers.Add(droneMarker);
                 droneMarkers.Add(droneMarker);
 
-                // Додавання кола радіусу атаки
+                // Маркер радиуса вокруг дрона
+                double adjustedRadius = Radius * (MapControl.Zoom / 3); // Учёт масштаба карты
                 var radiusMarker = new GMapMarker(new PointLatLng(pos.lat, pos.lng))
                 {
                     Shape = new Ellipse
                     {
                         Fill = Brushes.Transparent,
-                        Stroke = Brushes.Blue, // Устанавливаем цвет обводки в синий
+                        Stroke = Brushes.Blue,
                         StrokeThickness = 1,
-                        Width = Radius * 2 * (MapControl.Zoom / 3),
-                        Height = Radius * 2 * (MapControl.Zoom / 3),
+                        Width = adjustedRadius * 2,
+                        Height = adjustedRadius * 2,
+                        RenderTransform = new TranslateTransform(-adjustedRadius, -adjustedRadius)
                     }
                 };
                 MapControl.Markers.Add(radiusMarker);
