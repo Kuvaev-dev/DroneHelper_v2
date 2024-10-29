@@ -40,8 +40,7 @@ namespace DroneHelper_v2
             GMaps.Instance.Mode = AccessMode.ServerAndCache;
             MapControl.MapProvider = GMapProviders.GoogleMap;
             MapControl.Position = new PointLatLng(55.0, 37.0);
-            MapControl.MinZoom = 2;
-            MapControl.MaxZoom = 18;
+            MapControl.MaxZoom = 3;
             MapControl.Zoom = 3;
         }
 
@@ -88,7 +87,7 @@ namespace DroneHelper_v2
             if (drones.Count < MaxDrones)
             {
                 drones.Add(new Drone { Position = (latLng.Lat, latLng.Lng), Speed = Speed, Radius = Radius });
-                initialDronePositions.Add((latLng.Lat, latLng.Lng)); // Збереження початкової позиції
+                initialDronePositions.Add((latLng.Lat, latLng.Lng)); // Сохраняем начальную позицию
                 lstDroneCoordinates.Items.Add($"Drone {drones.Count}: Initial Lat: {latLng.Lat}, Lng: {latLng.Lng}");
                 DrawDrones(null, false);
             }
@@ -108,11 +107,10 @@ namespace DroneHelper_v2
             enemyMarkers.Clear();
             MapControl.Markers.Clear();
 
-            // Скидаємо радіус і швидкість до значень за замовчуванням
             Radius = 0;
             Speed = 0;
-            txtRadius.Text = string.Empty; // Очищаємо текстове поле радіусу
-            txtSpeed.Text = string.Empty;   // Очищаємо текстове поле швидкості
+            txtRadius.Text = string.Empty;
+            txtSpeed.Text = string.Empty;
         }
 
         private bool ValidateInput()
@@ -152,7 +150,6 @@ namespace DroneHelper_v2
             }
             enemyMarkers.Clear();
 
-            // Відображення незнищених ворогів червоним кольором
             foreach (var enemy in enemies)
             {
                 var enemyMarker = new GMapMarker(new PointLatLng(enemy.lat, enemy.lng))
@@ -163,7 +160,6 @@ namespace DroneHelper_v2
                 enemyMarkers.Add(enemyMarker);
             }
 
-            // Відображення знищених ворогів зеленим кольором
             foreach (var destroyed in destroyedEnemies)
             {
                 var destroyedMarker = new GMapMarker(new PointLatLng(destroyed.lat, destroyed.lng))
@@ -181,7 +177,6 @@ namespace DroneHelper_v2
             lstDroneCoordinates.Items.Clear();
             List<(double lat, double lng)> attackPositions = new List<(double lat, double lng)>();
 
-            // Додаємо початкові позиції дронів до списку відображення
             for (int i = 0; i < initialDronePositions.Count; i++)
             {
                 lstDroneCoordinates.Items.Add($"Drone {i + 1}: Initial Lat: {initialDronePositions[i].lat}, Lng: {initialDronePositions[i].lng}");
@@ -189,16 +184,13 @@ namespace DroneHelper_v2
 
             for (int i = 0; i < drones.Count; i++)
             {
-                double droneX = GetX(bestGenome[i]);
-                double droneY = GetY(bestGenome[i]);
-                attackPositions.Add((droneX, droneY));
+                double droneLat = GetLatitude(bestGenome[i]);
+                double droneLng = GetLongitude(bestGenome[i]);
+                attackPositions.Add((droneLat, droneLng));
 
                 foreach (var enemy in enemies.ToList())
                 {
-                    double distance = Math.Sqrt(Math.Pow(droneX - enemy.lat, 2) + Math.Pow(droneY - enemy.lng, 2));
-                    // Вираховуємо час дольоту до цілі
-                    double timeToReach = distance / Speed;
-                    lstDroneCoordinates.Items.Add($"Drone {i + 1}: Attack Lat: {droneX:F6}, Lng: {droneY:F6}, Time to reach: {timeToReach:F2} seconds");
+                    double distance = Math.Sqrt(Math.Pow(droneLat - enemy.lat, 2) + Math.Pow(droneLng - enemy.lng, 2));
 
                     if (distance <= Radius)
                     {
@@ -207,23 +199,23 @@ namespace DroneHelper_v2
                     }
                 }
 
-                drones[i].Position = (droneX, droneY);
+                drones[i].Position = (droneLat, droneLng);
             }
 
             DrawDrones(attackPositions, true);
             DrawEnemies();
         }
 
-        private double GetY(int genome)
+        private double GetLatitude(int genome)
         {
-            int y = genome & 0xffff;
-            return 55.0 + (y * 10.0 / 0x10000) - 5;
+            int latPart = genome & 0xffff;
+            return 55.0 + (latPart * 10.0 / 0x10000) - 5;
         }
 
-        private double GetX(int genome)
+        private double GetLongitude(int genome)
         {
-            int x = (genome >> 16) & 0xffff;
-            return 37.0 + (x * 10.0 / 0x10000) - 5;
+            int lngPart = (genome >> 16) & 0xffff;
+            return 37.0 + (lngPart * 10.0 / 0x10000) - 5;
         }
 
         private List<KeyValuePair<int[], double>> GenerateRandom()
@@ -248,25 +240,20 @@ namespace DroneHelper_v2
 
             for (int i = 0; i < genome.Length; i++)
             {
-                double droneX = GetX(genome[i]);
-                double droneY = GetY(genome[i]);
+                double droneLat = GetLatitude(genome[i]);
+                double droneLng = GetLongitude(genome[i]);
 
                 foreach (var enemy in enemies)
                 {
-                    double enemyX = enemy.lat;
-                    double enemyY = enemy.lng;
-
-                    // Перевірка, чи ворог знаходиться в радіусі атаки дрона
-                    if (Math.Sqrt(Math.Pow(droneX - enemyX, 2) + Math.Pow(droneY - enemyY, 2)) <= Radius)
+                    if (Math.Sqrt(Math.Pow(droneLat - enemy.lat, 2) + Math.Pow(droneLng - enemy.lng, 2)) <= Radius)
                     {
-                        destroyedEnemies.Add(enemy); // Додаємо ворога до списку знищених
+                        destroyedEnemies.Add(enemy);
                     }
                 }
             }
 
-            return destroyedEnemies.Count; // Кількість знищених ворогів як показник пристосованості
+            return destroyedEnemies.Count;
         }
-
 
         private void SortGeneration(List<KeyValuePair<int[], double>> generation)
         {
@@ -280,7 +267,7 @@ namespace DroneHelper_v2
             List<KeyValuePair<int[], double>> result = new List<KeyValuePair<int[], double>>();
 
             if (useElitism)
-                result.Add(parents[0]); // Додаємо найкращий геном з попереднього покоління
+                result.Add(parents[0]);
 
             while (result.Count < GenerationSize)
             {
@@ -292,10 +279,9 @@ namespace DroneHelper_v2
                 {
                     child[i] = _rnd.NextDouble() < 0.5 ? parents[parent1].Key[i] : parents[parent2].Key[i];
 
-                    // Додаємо мутацію з ймовірністю MutationProbability
                     if (_rnd.NextDouble() < MutationProbability)
                     {
-                        child[i] ^= 1 << _rnd.Next(32); // Змінюємо випадковий біт геному
+                        child[i] ^= 1 << _rnd.Next(32);
                     }
                 }
 
@@ -314,12 +300,10 @@ namespace DroneHelper_v2
             }
             droneMarkers.Clear();
 
-            // Вибір правильних позицій для відображення - атакуючі позиції або позиції дронів.
             List<(double lat, double lng)> positionsToDisplay = isAttacking ? attackPositions : drones.Select(d => d.Position).ToList();
 
             foreach (var pos in positionsToDisplay)
             {
-                // Маркер дрона
                 var droneMarker = new GMapMarker(new PointLatLng(pos.lat, pos.lng))
                 {
                     Shape = new Ellipse { Fill = Brushes.Blue, Width = 10, Height = 10 }
@@ -327,8 +311,7 @@ namespace DroneHelper_v2
                 MapControl.Markers.Add(droneMarker);
                 droneMarkers.Add(droneMarker);
 
-                // Маркер радіусу навколо дрона
-                double adjustedRadius = Radius * (MapControl.Zoom / 3); // Урахування масштабу карти
+                double adjustedRadius = Radius * (MapControl.Zoom / 3);
                 var radiusMarker = new GMapMarker(new PointLatLng(pos.lat, pos.lng))
                 {
                     Shape = new Ellipse
